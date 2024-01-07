@@ -7,8 +7,6 @@ class NeuronPatch:
         self.dimensions = dimensions
         self.dt = dt
         self.loop = loop
-        # Initialize a 3D array to store membrane potentials over time. 
-        # The last dimension is time.
         self.V = np.full(dimensions + (loop,), V_initial, dtype=np.float64)
         self.receptors = []
         self.currents = []
@@ -84,7 +82,7 @@ class LeakyCurrent(Current):
 
     def compute_current(self, V_m, time_index):
         # Correctly calculate leaky current: I_leak = g * (V_m - e)
-        self.current_matrix[..., time_index] = self.g * (V_m - self.e)
+        self.current_matrix[..., time_index] = self.g * (self.e - V_m)
         return self.current_matrix[..., time_index]
 
 
