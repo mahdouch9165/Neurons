@@ -21,8 +21,8 @@ class NeuronPatch:
 
         total_current = np.zeros(self.dimensions)
         for current in self.currents:
-            current_at_time = current.compute_current(self.V[..., time_index], time_index)
-            total_current += np.reshape(current_at_time, self.dimensions)
+            # Directly use the current without reshaping as it's already in the correct shape
+            total_current += current.compute_current(self.V[..., time_index], time_index)
 
         # Update membrane potentials only if not the last time step
         if time_index < self.loop - 1:
