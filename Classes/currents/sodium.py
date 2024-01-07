@@ -1,22 +1,35 @@
-# sodium.py
+# Contents of .\Classes\currents\sodium.py
 import numpy as np
 from .current import Current
 
 class SodiumCurrent(Current):
-    def __init__(self, e, g, N_num, loop, dt):
-        super().__init__(e, g, N_num, loop)
-        self.dt = dt  # Time step for the simulation
-        # Initialize gating variable matrices
-        self.m = np.zeros((N_num, loop))
-        self.h = np.zeros((N_num, loop))
+    def __init__(self, e, g, dimensions, loop, dt, V_initial):
+        super().__init__(e, g, dimensions, loop)
+        self.dt = dt
+        # Initialize gating variable matrices to their steady-state values
+        m_ss = self.alpha_m(V_initial) / (self.alpha_m(V_initial) + self.beta_m(V_initial))
+        h_ss = self.alpha_h(V_initial) / (self.alpha_h(V_initial) + self.beta_h(V_initial))
+        self.m = np.full(dimensions + (loop,), m_ss)
+        self.h = np.full(dimensions + (loop,), h_ss)
 
-    def compute_current(self, V_m):
-        # Update gating variables
-        self.m[:, 1:] = self.m[:, :-1] + self.dt * (self.alpha_m(V_m[:, :-1]) * (1 - self.m[:, :-1]) - self.beta_m(V_m[:, :-1]) * self.m[:, :-1])
-        self.h[:, 1:] = self.h[:, :-1] + self.dt * (self.alpha_h(V_m[:, :-1]) * (1 - self.h[:, :-1]) - self.beta_h(V_m[:, :-1]) * self.h[:, :-1])
-        # Compute current
-        self.current_matrix[:, 1:] = self.g * (self.m[:, 1:] ** 3) * self.h[:, 1:] * (self.e - V_m[:, 1:])
-        return self.current_matrix
+    def compute_current(self, V_m, time_index):
+        # Check time_index bounds
+        if time_index < 0 or time_index >= self.loop - 1:
+            raise IndexError("time_index out of bounds")
+
+        # Update gating variables for the next time step
+        self.m[..., time_index + 1] = self.update_gating(self.m[..., time_index], self.alpha_m, self.beta_m, V_m)
+        self.h[..., time_index + 1] = self.update_gating(self.h[..., time_index], self.alpha_h, self.beta_h, V_m)
+
+        # Compute current for the current time step
+        current = self.g * (self.m[..., time_index] ** 3) * self.h[..., time_index] * (self.e - V_m)
+        self.current_matrix[..., time_index] = current
+        return current
+
+
+    def update_gating(self, gating_variable, alpha_func, beta_func, V_m):
+        return gating_variable + self.dt * (alpha_func(V_m) * (1 - gating_variable) - beta_func(V_m) * gating_variable)
+
 
     @staticmethod
     def alpha_m(V):

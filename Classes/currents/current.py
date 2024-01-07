@@ -5,6 +5,7 @@ class Current:
         self.e = e
         self.g = g
         self.current_matrix = np.zeros(dimensions + (loop,))  # Time dimension added
+        self.loop = loop
 
     def compute_current(self, V_m, time_index):
         raise NotImplementedError("Subclasses should implement this method")

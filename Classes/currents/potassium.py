@@ -1,20 +1,31 @@
-# potassium.py
+# Contents of .\Classes\currents\potassium.py
 import numpy as np
 from .current import Current
 
 class PotassiumCurrent(Current):
-    def __init__(self, e, g, N_num, loop, dt):
-        super().__init__(e, g, N_num, loop)
-        self.dt = dt  # Time step for the simulation
-        # Initialize gating variable matrices
-        self.n = np.zeros((N_num, loop))
+    def __init__(self, e, g, dimensions, loop, dt, V_initial):
+        super().__init__(e, g, dimensions, loop)
+        self.dt = dt
+        # Initialize gating variable matrix to its steady-state value
+        n_ss = self.alpha_n(V_initial) / (self.alpha_n(V_initial) + self.beta_n(V_initial))
+        self.n = np.full(dimensions + (loop,), n_ss)
 
-    def compute_current(self, V_m):
-        # Update gating variables
-        self.n[:, 1:] = self.n[:, :-1] + self.dt * (self.alpha_n(V_m[:, :-1]) * (1 - self.n[:, :-1]) - self.beta_n(V_m[:, :-1]) * self.n[:, :-1])
-        # Compute current
-        self.current_matrix[:, 1:] = self.g * (self.n[:, 1:] ** 4) * (self.e - V_m[:, 1:])
-        return self.current_matrix
+    def compute_current(self, V_m, time_index):
+        # Check time_index bounds
+        if time_index < 0 or time_index >= self.loop - 1:
+            raise IndexError("time_index out of bounds")
+
+        # Update gating variable for the next time step
+        self.n[..., time_index + 1] = self.update_gating(self.n[..., time_index], self.alpha_n, self.beta_n, V_m)
+
+        # Compute current for the current time step
+        current = self.g * (self.n[..., time_index] ** 4) * (self.e - V_m)
+        self.current_matrix[..., time_index] = current
+        return current
+
+
+    def update_gating(self, gating_variable, alpha_func, beta_func, V_m):
+        return gating_variable + self.dt * (alpha_func(V_m) * (1 - gating_variable) - beta_func(V_m) * gating_variable)
 
     @staticmethod
     def alpha_n(V):
